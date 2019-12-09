@@ -16,6 +16,21 @@
 
 package org.mitre.dsmiley.httpproxy;
 
+import java.io.Closeable;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.net.HttpCookie;
+import java.net.URI;
+import java.util.BitSet;
+import java.util.Enumeration;
+import java.util.Formatter;
+
+import javax.servlet.ServletException;
+import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpEntityEnclosingRequest;
@@ -31,26 +46,11 @@ import org.apache.http.client.utils.URIUtils;
 import org.apache.http.config.SocketConfig;
 import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.message.BasicHttpEntityEnclosingRequest;
 import org.apache.http.message.BasicHttpRequest;
 import org.apache.http.message.HeaderGroup;
 import org.apache.http.util.EntityUtils;
-
-import javax.servlet.ServletException;
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.io.Closeable;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.net.HttpCookie;
-import java.net.URI;
-import java.util.BitSet;
-import java.util.Enumeration;
-import java.util.Formatter;
 
 /**
  * An HTTP reverse proxy/gateway servlet. It is designed to be extended for customization
@@ -600,7 +600,7 @@ public class ProxyServlet extends HttpServlet {
     String pathInfo = rewritePathInfoFromRequest(servletRequest);
     if (pathInfo != null) {//ex: /my/path.html
       // getPathInfo() returns decoded string, so we need encodeUriQuery to encode "%" characters
-      uri.append(encodeUriQuery(pathInfo, true));
+      uri.append(pathInfo);
     }
     // Handle the query string & fragment
     String queryString = servletRequest.getQueryString();//ex:(following '?'): name=value&foo=bar#fragment
@@ -638,7 +638,7 @@ public class ProxyServlet extends HttpServlet {
    * Useful when url-pattern of servlet-mapping (web.xml) requires manipulation.
    */
   protected String rewritePathInfoFromRequest(HttpServletRequest servletRequest) {
-    return servletRequest.getPathInfo();
+    return servletRequest.getRequestURI().substring(servletRequest.getServletPath().length());
   }
 
   /**
@@ -701,7 +701,7 @@ public class ProxyServlet extends HttpServlet {
       char c = in.charAt(i);
       boolean escape = true;
       if (c < 128) {
-        if (asciiQueryChars.get((int)c) && !(encodePercent && c == '%')) {
+        if (asciiQueryChars.get(c) && !(encodePercent && c == '%')) {
           escape = false;
         }
       } else if (!Character.isISOControl(c) && !Character.isSpaceChar(c)) {//not-ascii
@@ -731,14 +731,14 @@ public class ProxyServlet extends HttpServlet {
     char[] c_reserved = "?/[]@".toCharArray();//plus punct
 
     asciiQueryChars = new BitSet(128);
-    for(char c = 'a'; c <= 'z'; c++) asciiQueryChars.set((int)c);
-    for(char c = 'A'; c <= 'Z'; c++) asciiQueryChars.set((int)c);
-    for(char c = '0'; c <= '9'; c++) asciiQueryChars.set((int)c);
-    for(char c : c_unreserved) asciiQueryChars.set((int)c);
-    for(char c : c_punct) asciiQueryChars.set((int)c);
-    for(char c : c_reserved) asciiQueryChars.set((int)c);
+    for(char c = 'a'; c <= 'z'; c++) asciiQueryChars.set(c);
+    for(char c = 'A'; c <= 'Z'; c++) asciiQueryChars.set(c);
+    for(char c = '0'; c <= '9'; c++) asciiQueryChars.set(c);
+    for(char c : c_unreserved) asciiQueryChars.set(c);
+    for(char c : c_punct) asciiQueryChars.set(c);
+    for(char c : c_reserved) asciiQueryChars.set(c);
 
-    asciiQueryChars.set((int)'%');//leave existing percent escapes in place
+    asciiQueryChars.set('%');//leave existing percent escapes in place
   }
 
 }
